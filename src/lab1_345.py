@@ -7,8 +7,9 @@ A = 10  # Амплитуда, В
 n = np.arange(0, 127)
 y = A * np.sin(2 * np.pi * n / T)
 
-N = 8 # Количество уровней квантования
-d = A / (N - 1) # Шаг квантования
+BITS = 3 # Разрядность
+N = 2**BITS # Количество уровней квантования
+d = 2 * A / (N - 1) # Шаг квантования
 yd = y / d # Значение сигнала, делённое на шаг квантования
 
 Yrd = np.round(yd)
@@ -22,10 +23,10 @@ ERRfx = yd - Yfx
 ERRfr = yd - Yfr
 
 methods = [
-    ('round', Yrd, ERRrd, 'red'),
     ('ceil', Ycl, ERRcl, 'blue'), 
-    ('trunc', Yfx, ERRfx, 'green'),
     ('floor', Yfr, ERRfr, 'cyan'),
+    ('round', Yrd, ERRrd, 'red'),
+    ('trunc', Yfx, ERRfx, 'green'),
 ]
 
 def plot_quantized_signals() -> None:
@@ -35,11 +36,14 @@ def plot_quantized_signals() -> None:
     for name, Y, _, color in methods:
         ax.step(n, Y, color=color, label=name, where='mid', alpha=0.8)
 
+    ax.plot(n, yd, color='black', linestyle='--', alpha=0.5, label='Исходный сигнал')
+
     ax.set_title('Сигналы, квантованные разными методами', fontsize=11, fontweight='bold')
     ax.legend(loc='upper right')
+    ax.set_xlabel(f'Номер отсчёта')
+    ax.set_ylabel(f'Номер уровня')
     ax.grid(True)
     fig.tight_layout()
-
 
 def plot_quantization_error_histograms() -> None:
     fig, axs = plt.subplots(2, 2, figsize=(10, 7))
@@ -52,7 +56,6 @@ def plot_quantization_error_histograms() -> None:
         axs_flat[i].grid(True)
 
     fig.tight_layout()
-
 
 def plot_quantization_error_table() -> None:
     fig = plt.figure(figsize=(8, 2.5))
@@ -83,41 +86,42 @@ def plot_quantization_error_table() -> None:
 
     fig.tight_layout()
 
-def print_binary_codes_table() -> None:
+def print_binary_codes_table(y: np.ndarray) -> None:
     print('\n' + '='*65)
-    print('ЗАДАНИЕ 5: ТАБЛИЦА ДВОИЧНОГО КОДИРОВАНИЯ СИГНАЛА (метод round)')
+    print('ЗАДАНИЕ 5: ТАБЛИЦА ДВОИЧНОГО КОДИРОВАНИЯ СИГНАЛА')
     print('='*65)
     print(f'{'№ отсчета':<10} | {'Квант. значение':<16} | {'Прямой код':<12} | {'Доп. код':<12}')
     print('-'*65)
 
-    for i in range(50):
-        q_val = int(Yrd[i])
-        direct, twos = _to_binary_codes(q_val, bits=4)
+    for i in range(T):
+        q_val = int(y[i])
+        q_val_offsetted = N // 2 + q_val
+
+        direct = _to_binary_direct(q_val_offsetted)
+        twos = _to_binary_twos(q_val)
+
         print(f'{i:<10} | {q_val:<16} | {direct:<12} | {twos:<12}')
 
     print('='*65)
 
-def _to_binary_codes(value: int, bits: int = 4) -> tuple[str, str]:
-    """Преобразовать целое число в прямой и дополнительный двоичные коды."""
+def _to_binary_direct(value: int) -> str:
+    """Преобразовать целое число в прямой двоичный код."""
 
-    # Прямой код (Sign-Magnitude)
+    assert value >= 0, value
+    return bin(value)[2:].zfill(BITS + 1)
+
+def _to_binary_twos(value: int) -> str:
+    """Преобразовать целое число в дополнительный двоичный код."""
+
     if value >= 0:
-        direct_code = f'0{bin(value)[2:].zfill(bits-1)}'
-    else:
-        direct_code = f'1{bin(abs(value))[2:].zfill(bits-1)}'
-        
-    # Дополнительный код (Two's Complement)
-    if value >= 0:
-        twos_code = direct_code
-    else:
-        twos_code = bin((1 << bits) + value)[2:]
-        
-    return direct_code, twos_code
+        return _to_binary_direct(value)
+    
+    return bin((1 << (BITS + 1)) + value)[2:]
 
 
 if __name__ == '__main__':
     plot_quantized_signals()
     plot_quantization_error_histograms()
     plot_quantization_error_table()
-    print_binary_codes_table()
+    print_binary_codes_table(Yrd)
     plt.show()
